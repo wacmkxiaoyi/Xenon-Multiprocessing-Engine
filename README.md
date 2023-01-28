@@ -4,7 +4,67 @@ Version 1.2
 
 A multiprocessing interface for python which I used to use it, I call it Xenon Engine because data transport in the code like **X**.
 
+You can download the package at **Release** in your right hand.
+
 # Guide
+
+## How to use XME
+
+You should unpack XME and copy it to your programe dir at first. If somewhere in your programe you need to import XME for this file
+
+```python
+from XME import XME
+```
+
+In somewhere you want to call XME, you should create a XME object.
+
+```python
+xme=XME()
+```
+
+Secondly, you must build a args_set to your tasks, for example there are a function:
+
+```python
+def fun(args):
+    a,b,c,d=args
+    return b**2+2*a*b+c*d
+```
+
+If the b=range(30)/15, a=1, c=0.5 and d=5 for each case, the tasks number is len(b)=30. And if you would like to run the cases with 4 processing (default is your cpu_count), you can build a args_set and set:
+
+```python
+a=1
+c=0.5
+d=5
+ao=xme.build_ao(30,4) #build a ArrayOperator object, 30-tasks numbers, 4-processing numbers
+b=[]
+for i in range(30):
+    b.append(i/15)
+ao.add_common_args(a) #add a constant arg
+ao.add_argscut(b) #add a various arg
+ao.add_common_args(args_array=(c,d)) #add a series constant arg
+```
+
+Before you run the tasks, you shuld build a Executor.
+
+```python
+ex=xme.build_ex(fun, dowithlog=True) #fun-the function need to be executed, dowithlog- see XMEv1/Executor.py
+```
+
+And then take ao to ex and build Pools and run
+
+```python
+results=ex.build_from_ao(ao) #build pool
+ao.result_combine() #result combine
+print(ao.results) #results tuple
+for result in results:
+    print(result) #result for each processing
+```
+
+Another test file:
+```shell
+python XME_test.py
+```
 
 ## File structure
 
@@ -46,13 +106,13 @@ Logputter is a class to output log and message in the screen and log file during
 properties:
 
   **logfile**, str, None<br>
-	**time**, bool, True, print time<br>
-	**msgtype**, bool, True, print message type<br>
-	**processing**, bool, True, print pid<br>
-	**indent**, bool, True, open indent output<br>
-	**indent_num**, int, 4, the indent level<br>
-	**indent_type**, str, "-", the indent char<br>
-	**print_in_screen**, bool, True, same as above<br>
+  **time**, bool, True, print time<br>
+  **msgtype**, bool, True, print message type<br>
+  **processing**, bool, True, print pid<br>
+  **indent**, bool, True, open indent output<br>
+  **indent_num**, int, 4, the indent level<br>
+  **indent_type**, str, "-", the indent char<br>
+  **print_in_screen**, bool, True, same as above<br>
   **module_version_info**, dict, no default value, load from __init__()
  
 functions:
@@ -82,10 +142,8 @@ properties:
 
   **pnum**, int, cpu_count(), same as above<br>
   **results**, list, [], the results of tasks<br>
-	**proc**, list, [], not useful<br>
   **args**, list, [], args of each tasks<br>
-	**args_build**, bool, False, not useful<br>
-	**cal_num**, int, no default value, tasks number
+  **cal_num**, int, no default value, tasks number
   
 functions:
 
