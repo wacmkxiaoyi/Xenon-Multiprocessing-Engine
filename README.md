@@ -1,6 +1,6 @@
 # Xenon-Multiprocessing-Engine (XME)
 
-Version 1.2
+Version 2.0
 
 A multiprocessing interface for python which I used to use it, I call it Xenon Engine because data transport in the code like **X**.
 
@@ -8,7 +8,11 @@ You can download the package at **Release** in your right hand.
 
 # Guide
 
+New feature: Support different functions and AOPs, change function name build_ao to ao and build_ex to ex.
+
 ## How to use XME
+
+### Single function (version > 1.0)
 
 You should unpack XME and copy it to your programe dir at first. If somewhere in your programe you need to import XME for this file
 
@@ -30,13 +34,15 @@ def fun(args):
     return b**2+2*a*b+c*d
 ```
 
-If the b=range(30)/15, a=1, c=0.5 and d=5 for each case, the tasks number is len(b)=30. And if you would like to run the cases with 4 processing (default is your cpu_count), you can build a args_set and set:
+If the b=range(30)/15, a=1, c=0.5 and d=5 for each case, the tasks number is len(b)=30. And if you would like to run the cases with 4 processing (default is your cpu_count), a **ArrayOperator object** should be created to store the parameters.
 
 ```python
 a=1
 c=0.5
 d=5
-ao=xme.build_ao(30,4) #build a ArrayOperator object, 30-tasks numbers, 4-processing numbers
+#v1.2: xme.build_ao(), v2.0: xme.ao() or xme.build_ao()
+#build a ArrayOperator object, 30-tasks numbers, 4-processing numbers
+ao=xme.build_ao(30,4) 
 b=[]
 for i in range(30):
     b.append(i/15)
@@ -45,13 +51,15 @@ ao.add_argscut(b) #add a various arg
 ao.add_common_args(args_array=(c,d)) #add a series constant arg
 ```
 
-Before you run the tasks, you shuld build a Executor.
+Before you run the tasks, you shuld **build a Executor**.
 
 ```python
-ex=xme.build_ex(fun, dowithlog=True) #fun-the function need to be executed, dowithlog- see XMEv1/Executor.py
+#v1.2: xme.build_ex(), v2.0: xme.ex() or xme.build_ex()
+#fun-the function need to be executed, dowithlog- see XMEv1/Executor.py
+ex=xme.ex(fun, dowithlog=True) 
 ```
 
-And then take ao to ex and build Pools and run
+And then take **ao** into **ex** to build pool
 
 ```python
 results=ex.build_from_ao(ao) #build pool
@@ -61,12 +69,49 @@ for result in results:
     print(result) #result for each processing
 ```
 
-Another test file:
+### Multiple functions & AOP (version > 2.0)
+
+If you try to establish multiple process pools to realize multiple functions, it is not feasible. For example:
+
+**Incorrect code, do not use!**
+```python
+ex1.build_from_ao(ao1)
+ex2.build_from_ao(ao2)
+```
+
+Because the process pool establishment process of ex2 will not start until all subprograms in the process pool established by ex1 are completely completed in above code. 
+
+So in XME 1.2, you need to use the Executor object to realize this function In XME 2.0, Executor has been updated to version 3.0 to support this function. For example, there are functions fun1 and fun2.
+
+```python
+ex=xme.ex((fun1,fun2))
+#the Executor object will create two functions in a dict with default function name
+#{"fun0":fun1,"fun1":fun2}
+#if you want to definde function name by yourself
+#ex=xme.ex({"fun1":fun1,"fun2":fun2})
+```
+
+After creating Executor object, the ArrayOperator objects have similar format. See code:
+
+```python
+ex.build_from_ao((ao1,ao2))
+#If len(ao)<len(fun), e.g., fun=(fun0,fun1,fun2,fun3), ao=(ao0,ao1,ao2) => {"fun0":(ao0,),"fun1":(ao1,),"fun2":(ao2,)}
+#If len(ao)>len(fun), e.g., fun=(fun0,fun1), ao=(ao0,ao1,ao2)=>{"fun0":(ao0,),"fun1":(ao1,ao2)}
+#You can run with a more stringent form:
+#ex.build_from_ao({"fun1":ao1,"fun2":ao2})
+####################
+#If you want to ao1 & ao2 execute with fun1 only
+#ex.build_from_ao({"fun1":(ao1,ao2)})
+```
+
+### Test file:
 ```shell
 python XME_test.py
 ```
 
-## File structure
+**==============================File strcture OF OLD VERSION==============================**
+
+## File structure v1.2
 
 ### XME.py
 
