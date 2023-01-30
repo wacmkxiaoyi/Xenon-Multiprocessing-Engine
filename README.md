@@ -71,7 +71,7 @@ for result in results:
 
 ### Multiple functions & AOP (version > 2.0)
 
-If you try to establish multiple process pools to realize multiple functions, it is not feasible. For example:
+If you try to establish some pools to realize many functions, it is not feasible. For example:
 
 **Incorrect code, do not use!**
 ```python
