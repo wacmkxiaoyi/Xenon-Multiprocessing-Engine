@@ -4,7 +4,7 @@ Version 2.0
 
 A multiprocessing interface for python which I used to use it, I call it Xenon Engine because data transport in the code like **X**.
 
-You can download the package at **Release** in your right hand.
+You can download the package at **"Releases"** in your right hand.
 
 # Guide
 
