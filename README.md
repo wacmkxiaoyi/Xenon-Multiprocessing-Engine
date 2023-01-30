@@ -51,7 +51,7 @@ ao.add_argscut(b) #add a various arg
 ao.add_common_args(args_array=(c,d)) #add a series constant arg
 ```
 
-Before you run the tasks, you shuld **build a Executor**.
+Before you run the tasks, you shuld **create a Executor**.
 
 ```python
 #v1.2: xme.build_ex(), v2.0: xme.ex() or xme.build_ex()
@@ -81,7 +81,7 @@ ex2.build_from_ao(ao2)
 
 Because the pool establishment processings of ex2 will not start until all subprograms in the pool established by ex1 are completely completed in above code. 
 
-So in XME 1.2, you need to use the Executor object to realize this function with nested form. In XME 2.0, you can use **fun array** and **ao array** to realize it. For example, there are functions fun1 and fun2.
+So in XME 1.2, you need to nested use the Executor object or use **fun array** and **ao array** in XME 2.0 to realize it. For example, there are functions fun1 and fun2.
 
 ```python
 ex=xme.ex((fun1,fun2))
@@ -91,7 +91,7 @@ ex=xme.ex((fun1,fun2))
 #ex=xme.ex({"fun1":fun1,"fun2":fun2})
 ```
 
-After creating Executor object, the ArrayOperator objects have similar format. See code:
+After creating Executor object, the ArrayOperator objects have similar form. See code:
 
 ```python
 ex.build_from_ao((ao1,ao2))
@@ -104,7 +104,7 @@ ex.build_from_ao((ao1,ao2))
 #ex.build_from_ao({"fun1":(ao1,ao2)})
 ```
 
-### Test file:
+### A test file:
 ```shell
 python XME_test.py
 ```
