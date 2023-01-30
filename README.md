@@ -81,8 +81,7 @@ ex2.build_from_ao(ao2)
 
 Because the pool establishment processings of ex2 will not start until all subprograms in the pool established by ex1 are completely completed in above code. 
 
-So in XME 1.2, you need to use the Executor object to realize this function with nested form<br>
-In XME 2.0, Executor has been updated to version 3.0 to support this function. For example, there are functions fun1 and fun2.
+So in XME 1.2, you need to use the Executor object to realize this function with nested form. In XME 2.0, you can use **fun array** and **ao array** to realize it. For example, there are functions fun1 and fun2.
 
 ```python
 ex=xme.ex((fun1,fun2))
