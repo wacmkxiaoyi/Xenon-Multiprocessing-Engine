@@ -71,7 +71,7 @@ for result in results:
 
 ### Multiple functions & AOP (version > 2.0)
 
-If you try to establish some pools to realize many functions, it is not feasible. For example:
+You **cannot** establish some pools to realize many functions. For example:
 
 **Incorrect code, do not use!**
 ```python
@@ -79,7 +79,7 @@ ex1.build_from_ao(ao1)
 ex2.build_from_ao(ao2)
 ```
 
-Because the process pool establishment process of ex2 will not start until all subprograms in the process pool established by ex1 are completely completed in above code. 
+Because the pool establishment processings of ex2 will not start until all subprograms in the pool established by ex1 are completely completed in above code. 
 
 So in XME 1.2, you need to use the Executor object to realize this function In XME 2.0, Executor has been updated to version 3.0 to support this function. For example, there are functions fun1 and fun2.
 
