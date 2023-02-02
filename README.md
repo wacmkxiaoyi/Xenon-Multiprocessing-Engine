@@ -6,13 +6,9 @@ A multiprocessing interface for python which I used to use it, I call it Xenon E
 
 You can download the package at **"Releases"** in your right hand.
 
-# Guide
+# How to use XME
 
-New feature: Support different functions and AOPs, change function name build_ao to ao and build_ex to ex.
-
-## How to use XME
-
-### Single function (version > 1.0)
+## Single function (version > 1.0)
 
 You should unpack XME and copy it to your programe dir at first. If somewhere in your programe you need to import XME for this file
 
@@ -69,7 +65,7 @@ for result in results:
     print(result) #result for each processing
 ```
 
-### Multiple functions & AOP (version > 2.0)
+## Multiple functions & AOP (version > 2.0)
 
 You **cannot** establish some pools to realize many functions. For example:
 
@@ -104,7 +100,7 @@ ex.build_from_ao((ao1,ao2))
 #ex.build_from_ao({"fun1":(ao1,ao2)})
 ```
 
-### Log output
+## Log output
 
 XME has a object to support log output. You can definde **dowithlog=True** when build Executor
 
@@ -133,7 +129,7 @@ log.write_log("message",indent=(indent level),msgtype="warning")
 
 For orther uncommon cases of log object, you can refer to the source code.
 
-### Warning
+## Warning
 
 XME does **not support** sharing-openning file mode (including some relative object, e.g. astropy.io.fits object). For example:
 
@@ -186,142 +182,12 @@ def main():
     ex.build_from_ao(ao)
 ```
 
-### A test file:
+## A test file:
 ```shell
 python XME_test.py
+python XME_test2.py
 ```
 
-**==============================File strcture OF OLD VERSION==============================**
 
-## File structure v1.2
 
-### XME.py
-
-This file is the main file of XME, which consists of two objects (in array format): **ArrayOperator** (see section XMEv1/ArrayOperator.py) and **Executor** (see section XMEv1/Executor.py). Actually, you only do with this file in most cases.
-
-XME.py contains a class **XME** with properties:
-
-**aoobj_array** (array, default=[]): The array of ArrayOperator objects.<br>
-**exobj_array** (array, default=[]): The array of Executor objects.<br>
-**has_been_print** (bool, default=False): When it set to **True**, the header infomation of XME will not be shown in the screen, if you set **dowithlog**=True and **print_in_screen**=True on **build_ex** function. 
-
-And function:
-
-**__init__**:{<br>
-  pnum (option, default=cpu_count()), int, how many processing you need<br>
-}
-
-**build_ao**:{build a ArrayOperator object<br>
-  calnum, int, the tasks number<br>
-  pnum (option, default=cpu_count()), int, same as above<br>
-}
-
-**build_ex**:{build a Exectuor object<br>
-  fun, function, which function you want to execute<br>
-  dowithlog (option, default=False), bool, log output open when set to True<br>
-  print_in_screen (option, default=True), bool, the log print in screen when set dowithlog to True<br>
-  logfile (option, default=None), str, the dir of log<br>
-  pnum (option, default=cpu_count()), int, same as above<br>
-}
-
-**clean**: reset aoobj_array and exobj_array
-
-### XMEv1/Logputter.py
-
-Logputter is a class to output log and message in the screen and log file during the process. However you must set **dowithlog** to true when build Executor object, if you want to use it.
-
-properties:
-
-  **logfile**, str, None<br>
-  **time**, bool, True, print time<br>
-  **msgtype**, bool, True, print message type<br>
-  **processing**, bool, True, print pid<br>
-  **indent**, bool, True, open indent output<br>
-  **indent_num**, int, 4, the indent level<br>
-  **indent_type**, str, "-", the indent char<br>
-  **print_in_screen**, bool, True, same as above<br>
-  **module_version_info**, dict, no default value, load from __init__()
- 
-functions:
-
-**__init__**:{ <br>
-  logfile=None<br>
-  module_version_info={}<br>
-  has_been_print=False<br>
-}
-
-**write_header**:{ Output version infomation<br>
-  has_been_print=False<br>
-}
-
-**write_log**:{ Output a message<br>
-  message=""<br>
-  pid=0<br>
-  indent=0<br>
-  msgtype="Message"<br>
-}
-
-### XMEv1/ArrayOperator.py
-
-ArrayOperator is a class, used to store args and results for each tasks.
-
-properties:
-
-  **pnum**, int, cpu_count(), same as above<br>
-  **results**, list, [], the results of tasks<br>
-  **args**, list, [], args of each tasks<br>
-  **cal_num**, int, no default value, tasks number
-  
-functions:
-
-**__init__**:{<br>
-  cal_num<br>
-  pnum=cpu_count()<br>
-}
-
-**add_agrscut**:{ add args from a array, if len(array)<cal_num, args for orther task will be set to default_args<br>
-  args<br>
-  default_args=None<br>
-}
-
-**add_common_args**:{add a (series) constant args<br>
-  args=None<br>
-  args_array=None<br>
-}
-
-**result_combine**: Combine results after finishing tasks.
-
-### XMEv1/Executor.py
-
-Executor object is used to build/run/close a pool
-
-properties:
-
-  **fun**, function, no default, the function need to be executed<br>
-	**pnum**, int, cpu_count, same as above<br>
-	**results**, list, [], the Pool.Applyset array<br>
-	**dowithlog**, bool, False, same as above<br>
-	**logfile**, str, None<br>
-	**logobj**, Logputter, no default
-  
-functions:
-
-**do_fun**:{ run self.fun and save result to a Manager.list object<br>
-  args=()<br>
-  returns=None<br>
-}
-
-**add_a_pool**:{ Build a single pool<br>
-  args<br>
-  returns=None<br>
-  close=True
-  join=True<br>
-}
-
-**build_from_ao**:{ Build pools from a ArrayOperator object<br>
-  ao<br>
-  close=True<br>
-  join=True<br>
-  pnum=None<br>
-}
  
