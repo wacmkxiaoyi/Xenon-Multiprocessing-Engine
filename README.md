@@ -17,7 +17,7 @@ New feature: Support different functions and AOPs, change function name build_ao
 You should unpack XME and copy it to your programe dir at first. If somewhere in your programe you need to import XME for this file
 
 ```python
-from XME import XME
+from XME import XME # from XME.XME import XME #library version
 ```
 
 In somewhere you want to call XME, you should create a XME object.
@@ -55,7 +55,7 @@ Before you run the tasks, you shuld **create a Executor**.
 
 ```python
 #v1.2: xme.build_ex(), v2.0: xme.ex() or xme.build_ex()
-#fun-the function need to be executed, dowithlog- see XMEv1/Executor.py
+#fun-the function need to be executed, dowithlog- see log output
 ex=xme.ex(fun, dowithlog=True) 
 ```
 
@@ -102,6 +102,88 @@ ex.build_from_ao((ao1,ao2))
 ####################
 #If you want to ao1 & ao2 execute with fun1 only
 #ex.build_from_ao({"fun1":(ao1,ao2)})
+```
+
+### Log output
+
+XME has a object to support log output. You can definde **dowithlog=True** when build Executor
+
+In main() function
+```python
+ex=xme.ex(fun, dowithlog=True)
+```
+
+In run(args) function
+```python
+log=args[-1] #when set dowithlog=True, the last term of args is log output object
+log.write_log("This is a log")
+```
+
+The log print in your screen in default, you should set anorther value **logfile** if you want to output log in a file. If you dont want to see log in your screen, you should set **print_in_screen=False**.
+
+```python
+ex=xme.ex(fun, dowithlog=True,logfile="log.log",print_in_screen=False)
+```
+
+The log.write_log also support indent (multiple level) and message type output.
+
+```python
+log.write_log("message",indent=(indent level),msgtype="warning")
+```
+
+For orther uncommon cases of log object, you can refer to the source code.
+
+### Warning
+
+XME does **not support** sharing-openning file mode (including some relative object, e.g. astropy.io.fits object). For example:
+
+```python
+def do(args):
+    value,file=args
+    file.writeline(value)
+def main():
+    xme=XME()
+    ao=xme.ao(5)
+    ao.add_args(range(5))
+    file=open("test","a")
+    ao.add_common_args(file)
+    ex=xme.ex(do)
+    ex.build_from_ao(ao)
+    file.close()
+```
+
+In this case, a error about **"cannot pickle '_io.BufferedReader' object"** will be reported! This is because each process cannot communicate with each orther directly, even through file.
+
+One of the solution is you can operate this object in function **do** (always in write mode),
+
+```python
+def do(args):
+    value=args[0]
+    file=open("test","a")
+    file.writeline(value)
+    file.close()
+def main():
+    xme=XME()
+    ao=xme.ao(5)
+    ao.add_args(range(5))
+    ex=xme.ex(do)
+    ex.build_from_ao(ao)
+```
+
+Anorther solution is you can pickle a non-sharing-openning object (always in read mode),
+
+```python
+def do(args):
+    print(args[0])
+def main():
+    file=open("test","r")
+    data=file.readlines()
+    file.close()
+    xme=XME()
+    ao=xme.ao(len(data))
+    ao.add_args(data)
+    ex=xme.ex(do)
+    ex.build_from_ao(ao)
 ```
 
 ### A test file:
