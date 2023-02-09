@@ -2,6 +2,9 @@
 
 Version 2.0
 
+Author: Junxiang H. & Weihui L. <br>
+Suggestion: huangjunxiang@mail.ynu.edu.cn
+
 A multiprocessing interface for python.
 
 You can download the package at **"Releases"** in your right hand.
