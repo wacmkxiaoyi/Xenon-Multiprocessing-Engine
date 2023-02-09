@@ -183,7 +183,7 @@ def main():
     ex.build_from_ao(ao)
 ```
 
-## A test file:
+## Some test files:
 ```shell
 python XME_test.py
 python XME_test2.py
