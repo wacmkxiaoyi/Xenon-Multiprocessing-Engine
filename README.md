@@ -2,7 +2,7 @@
 
 Version 2.0
 
-A multiprocessing interface for python which I used to use it, I call it Xenon Engine because data transport in the code like **X**.
+A multiprocessing interface for python.
 
 You can download the package at **"Releases"** in your right hand.
 
@@ -13,7 +13,8 @@ You can download the package at **"Releases"** in your right hand.
 You should unpack XME and copy it to your programe dir at first. If somewhere in your programe you need to import XME for this file
 
 ```python
-from XME import XME # from XME.XME import XME #library version
+from XME import XME 
+# from XME.XME import XME #library version
 ```
 
 In somewhere you want to call XME, you should create a XME object.
