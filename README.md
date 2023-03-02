@@ -216,6 +216,7 @@ if __name__=="__main__":
     ao.add_argscut(range(100),**inner_args=True**)
     ex=xme.ex(fun)
     ex.build_from_ao(ao)
+```
 
 In this case, the function **fun** will be executed for **xme.pnum** times.
 
