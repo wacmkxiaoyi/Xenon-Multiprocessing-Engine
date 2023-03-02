@@ -1,6 +1,6 @@
 # Xenon-Multiprocessing-Engine (XME)
 
-Version 2.0
+Version 2.1
 
 Author: Junxiang H. & Weihui L. <br>
 Suggestion: huangjunxiang@mail.ynu.edu.cn
@@ -186,7 +186,42 @@ def main():
     ex.build_from_ao(ao)
 ```
 
-## Some test files:
+Update in version 2.1: Support inner_args mode
+
+Execute mode one: (traditional)
+
+```python
+def fun(args):
+    pass
+if __name__=="__main__":
+    xme=XME()
+    ao=xme.ao(100)
+    ao.add_argscut(range(100))
+    ex=xme.ex(fun)
+    ex.build_from_ao(ao)
+```
+
+In mode one, the function **fun** will be executed for 100 times.
+
+Execute mode two: (support >=2.1)
+
+```python
+def fun(args):
+    args_div=args[0]
+    for i in args_div:
+        pass
+if __name__=="__main__":
+    xme=XME()
+    ao=xme.ao(xme.pnum)
+    ao.add_argscut(range(100),**inner_args=True**)
+    ex=xme.ex(fun)
+    ex.build_from_ao(ao)
+
+In this case, the function **fun** will be executed for **xme.pnum** times.
+
+However, you should definde the funciton in **fun**.
+
+## Some test files (You can donwload those files in <2.0):
 ```shell
 python XME_test.py
 python XME_test2.py
