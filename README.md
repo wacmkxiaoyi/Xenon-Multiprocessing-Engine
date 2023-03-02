@@ -186,7 +186,7 @@ def main():
     ex.build_from_ao(ao)
 ```
 
-Update in version 2.1: Support inner_args mode
+## Update in version 2.1: Support inner_args mode
 
 Execute mode one: (traditional)
 
