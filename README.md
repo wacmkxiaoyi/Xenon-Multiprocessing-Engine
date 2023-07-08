@@ -9,7 +9,7 @@ Suggestion to: huangjunxiang@mail.ynu.edu.cn
 Website: wacmk.cn/com
 
 A multiprocessing interface for python.
-You can download the package at **"Releases"** in your right hand.
+You can download the **outdate** package at **"Releases"** in your right hand.
 
 # Install
 
