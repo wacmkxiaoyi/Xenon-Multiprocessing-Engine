@@ -7,7 +7,7 @@ Suggestion: huangjunxiang@mail.ynu.edu.cn
 
 A multiprocessing interface for python.
 
-You can download the package at **"Releases"** in your right hand.
+You can download the **outdate** package at **"Releases"** in your right hand.
 
 # How to use XME
 
