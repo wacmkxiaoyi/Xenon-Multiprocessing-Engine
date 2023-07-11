@@ -1,8 +1,8 @@
 # Xenon-Multiprocessing-Engine
 Xenon-Multiprocessing-Engine (**XME** thereafter) is a Python interface for process pool establishment, and result collection based on the Multiprocessing module.
 
-Version 3.0
-Update: 2023-07-08
+Version 3.1
+Update: 2023-07-11
 
 Author: Junxiang H. & Weihui L. <br>
 Suggestion to: huangjunxiang@mail.ynu.edu.cn
@@ -35,7 +35,8 @@ if __name__=="__main__": #this is necessary in multiprocessing tasks
 You should update your main function and call **XME**
 
 ```python
-from XME.XME import XME
+from XME import XME
+#import XME.XME as XME 
 if __name__=="__main__":
   xme=XME(targetfun,pnum=3) #where targetfun is target function, pnum is how many cores you would like to do in this function (default - all cores callable of your computer)
   x=50
@@ -51,11 +52,10 @@ if __name__=="__main__":
 
 # Logger Output
 
-XME has a built-in log output module. You can add the **logobj** into targetfun's **parameters' list**, and replace **print** (optional)
+XME has a built-in log output module. You can add the **print** into targetfun's **parameters' list**, and replace **print** (optional)
 
 ```python
-def target(x,y,logobj):
-  print=logobj.write_log
+def target(x,y,print=print):
   print("x=",x,"y=",y,"x+y",x+y) #useage like built-in function print
 ```
 
@@ -68,7 +68,7 @@ You can define the **logobj**'s parameters when create a XME object
 ```python
 if __name__=="__main__":
   xme=XME(targetfun,
-    do_with_log=True, #if set to False, the logger will be close (general switch), default True
+    do_with_log=True, #if set to False, the logger will be shutdowned (general switch), default True
     print_in_screen=True, #if set to False, the log will not show in your screen (or a terminal)
     logfile=None, #if set to a file (e.g., ***.log), the log will save into this file
     show_version_info=True #if set to False, the version info of XME will be hiden
