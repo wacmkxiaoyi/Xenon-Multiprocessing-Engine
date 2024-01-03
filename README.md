@@ -493,7 +493,9 @@ if __name__=="__main__":
 In the above situation, we assign values to XMEManager.\_\_valuetable\_\_ in two ways. In fact, \_\_valuetable\_\_ will not be an empty table at the beginning even without assignning. It is allocated three memory-shared dicts \_\_STATUS\_\_, \_\_GUARD\_\_, and \_\_XMEM\_\_ at the beginning.
 
 **\_\_STATUS\_\_**: Save the status information of all processes. The process needs to update the status information through XMEManger.status(Operator=None,Status=None).
+
 **\_\_GUARD\_\_**: XMEManger guardian class status (see section **2.3.1**)
+
 **\_\_XMEM\_\_**: Mapping of all built-in functions of XMEManager
 
 Other Functions in XMEManager:
