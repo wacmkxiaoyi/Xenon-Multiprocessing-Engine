@@ -27,14 +27,19 @@ pip3 install XME
 ## 1.1 Basic Structure
 
 The basic idea of XME is similar to a pair of function table. Generally there are two solutions:
+
 1. For a very large data set, we will perform some repeated operations on all data streams, and these operations are divisible and serializable, and the running time\>\>process awakening time; 
 2. For multiple different types of operations, we need to perform them simultaneously. They can be related to each other but are generally independent. 
 At those points we will create a process pool. The process pool associated with XME is based on functions. First, XME will store all function addresses in a list (similar to the virtual function table in C++, see the table):
 
 key     |     function
+
 fun1   ...    0x00000256
+
 fun2   ...    0x000002a3
+
 fun3   ...    0x0000030c
+
 ....   ...    .....
 
 These functions can be entered as parameters of the initialization function (i.e., **\_\_init\_\_()**) when creating the XME object:
@@ -59,14 +64,19 @@ Note: Please refer to the **logger** section for log output operations.
 In order to ensure that the daemon process does not end before other processes, the processes in the process pool need to perform the **.join()** operation, so XME does not support awakening some processes first and then awakening other processes. That is to say, we need an extended function table to store the functions that need to be called and the corresponding parameters. The functions in this extended function table will be executed simultaneously:
 
 key     |     function       |      args
+
 funa   ...    0x00000256    ...     a=1, b=1, c=1
+
 funa   ...    0x00000256    ...     a=2, b=1, c=1
+
 funb   ...    0x000002a3    ...     v=10
 
 Taking the above table as an example, XME will create three processes, two funa processes, and one funb process. But it is obviously not smart enough for the user to repeatedly define the two calls to funa (which does not satisfy any of the solutions mentioned above). XME provides a basic class **XME.Array** to declare what variables need to be split. The specific splitting operation will be completed in the XME sub-module **XME.ArrayOperator**, and the user does not need to perform additional operations. According to this rule, we can define the executions table as:
 
 key     |     function       |      args
+
 funa   ...    0x00000256    ...     a=xme.Array(range(2)), b=1, c=1
+
 funb   ...    0x000002a3    ...     v=10
 
 **Special case 1**: If multiple XME.Arrays appear in one extended table (such as **funa(a=xme.Array(range(10)), b=xme.Array(("b1","b2","b3") )**), then the number of processes will be allocated according to the maximum value of the key name of the current function (for example, 10 in the above example). Since the number of parameters b is less than 10, the b parameters for the 4th to 10th processes will all be b The last parameter in the parameter list (that is, "b3")
@@ -329,7 +339,9 @@ shared_object=XME.xmem_object("Class_Name",Class_Name,*initargs=*[],**initkwargs
 Then shared memory variables (proxy variables) such as shared_list will be inserted into the execution table in the form of proxy addresses and ordinary variable:
 
 key     |     function       |      args
+
 funa   ...    0x00000256    ...     a=shared_list (point to proxy address: 0x00000743),b=xme.Array(range(10))
+
 funa   ...    0x000002a3    ...     a=shared_list (point to proxy address: 0x00000743)
 
 ### 2.1.1 Shared Memory Lock
