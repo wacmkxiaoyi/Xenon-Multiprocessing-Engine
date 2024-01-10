@@ -1,5 +1,5 @@
 # Xenon-Multiprocessing-Engine
-Xenon-Multiprocessing-Engine (**XME** thereafter) is a (platform-independent) portable optimization interface based on **multiprocessing** for process pool operation, supports the most of **serializable-split** operations.
+Xenon-Multiprocessing-Engine (**XME** thereafter) is a (platform-independent) portable optimization IO intensive interface based on **multiprocessing** for process pool operation, supports the most of **serializable-split** operations.
 
 Version 3.3
 Update: 2023-12-31
