@@ -1,7 +1,7 @@
 # Xenon-Multiprocessing-Engine
 Xenon-Multiprocessing-Engine (**XME** thereafter) is a (platform-independent) portable optimization IO intensive interface (**XMESI**) based on **multiprocessing** for process pool operation, supports the most of **serializable-split** operations.
 
-Version 4.0.0
+Version 4.0.2
 Update: 2024-01-14
 
 Author: Junxiang H. & Weihui L. <br>
@@ -434,7 +434,7 @@ sec.release(sec.ADMIN) #release a lock, with operator the administractor
 ```
 
 ## 2.4 Monitor Module
-Monitor is a new module (version >=3.3) of XME designed to provide interaction between different programs (generally processes located on the local computer). This class has a shared memory variable Monitor.\_\_Message\_\_All processes can implement message passing (such as status reporting) and RPC (remote procedure call) by network. In Monitor communication, all data will be stored in the form of serializable messages (via the pickle module) (such as lists, dictionaries, np.ndarray, etc.). (**Monitor object will be created automatically when calling XMEMBuilder to create the XMEManager, and is also memory shared**)
+Monitor is a new module (version >=3.3) of XME designed to provide interaction between different programs (generally processes located on the local computer). This class has a shared memory variable Monitor.\_\_Message\_\_All processes can implement message passing (such as status reporting) and RPC (remote procedure call) by network. In Monitor communication, all data will be stored in the form of serializable messages (via the json module) (such as lists, dictionaries, np.ndarray, etc.). At the same time, all data in Monitor.\_\_Message\_\_ should be able to be serialized by json. The reason why pickle module is not used for serialization and json is used here is to consider the platform-independent feature. (**Monitor object will be created automatically when calling XMEMBuilder to create the XMEManager, and is also memory shared**)
 
 **Note: In XME<4.0, class Monitor: XME.XMElib.Monitor**
 
@@ -539,7 +539,7 @@ if __name__=="__main__":
 
 In this example, the client needs to connect to the server firstly. When the client needs the execution result of a certain function from the service at a certain moment, it will generate a unique identifier, package and encrypt all the information and send it to the service. When the service gets the message package, it will decrypt and unpack it, and call the functions and parameters specified by the client. Finally, the call result and unique identification are packaged and returned to the client, and the client will continue to perform the remaining tasks based on the results.
 
-It should be noted that the case shown in this section only provides a general framework of RPC and omits many key steps at each level, such as further information security, reliability, etc. are not considered. But it basically demonstrates the necessary factors to implement RPC. If readers need to engage in RPC development based on Monitor, please design the corresponding functions according to their own needs!
+It should be noted that the case shown in this section only provides a general framework of RPC and omits many key steps at each level, such as further information security, reliability, etc. are not considered. But it basically demonstrates the necessary factors to implement RPC. If readers need to engage in RPC development based on Monitor, please design the corresponding functions according to their own needs! 
 
 ## 2.5 XME.Manager.Guard
 XME.Manager.Guard is a collaborative process class provided by XME for automatically executing the XMEManager.exec function. If readers use XMEManager for function development and have high frequency of operations on shared memory variables and strict lock allocation requirements, it is recommended to use the XME.Manager.Guard process and cooperate with XMEManager.append() to implement it. At this time, XME.Manager.Guard will automatically host the call to XMEManager.exec to avoid complex lock interaction issues. 
