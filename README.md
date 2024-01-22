@@ -1,13 +1,14 @@
 # Xenon-Multiprocessing-Engine
 Xenon-Multiprocessing-Engine (**XME** thereafter) is a (platform-independent) portable optimization IO intensive interface (**XMESI**) based on **multiprocessing** for process pool operation, supports the most of **serializable-split** operations.
 
-Version 4.0.2
-Update: 2024-01-14
+Version 4.1.0
+Update: 2024-01-22
 
 Author: Junxiang H. & Weihui L. <br>
 Suggestion to: wacmkxiaoyi@gmail.com
 Website: wacmk.cn/com
 
+**Update in 4.1: The MPI mode blocking calculation function acquire\block is merged into the acquire function (block=True can be specified) as blocking (results are called through the mpi.get() function). Also add broadcast function.**
 
 **New feature in 4.0: A new MPI module based on IO from multiprocess.Pipe is added to enable computing-intensive multi-process programming. (see section 3)**
 
@@ -692,9 +693,10 @@ According to the MPI specification, process A will send the data packet to proce
 def main(XMEMPI):
   mpi,status,conns=XMEMPI
   points=[np.array([0,0]),np.array([3,0]),np.array([0,4])]
-  l01=mpi.block_acquire(status, conns, "distance", arg=(points[0],points[1]),to=ANY_PROCESS)
-  bufferpos02=mpi.acquire(status, conns, "distance", arg=(points[0],points[2]))
+  bufferpos01=mpi.acquire(status, conns, "distance", arg=(points[0],points[1]),block=True)
+  bufferpos02=mpi.acquire(status, conns, "distance", arg=(points[0],points[2]),to=list(status.keys())[0])
   bufferpos12=mpi.acquire(status, conns, "distance", arg=(points[1],points[2]))
+  l01=mpi.get(bufferpos01)
   l02=mpi.get(bufferpos02)
   l12=mpi.get(bufferpos12)
   mpi.close(status,conns)
