@@ -729,14 +729,13 @@ from XME.MPI import MPI
 from random import uniform
 import time,threading,sys
 r=1
-def scatter(nums,print=print):
+def scatter(nums):
   result=0
-  print(nums)
   for i in range(nums):
     if uniform(-r,r)**2+uniform(-r,r)**2<=r**2: result+=1
   return result
 
-def main(nums,subnums=0,XMEMPI=None,print=print):
+def main(nums,subnums=0,XMEMPI=None):
   t0=time.time()
   class res: 
     value=0
