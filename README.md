@@ -753,9 +753,9 @@ def main(nums,subnums=0,XMEMPI=None):
         result.lens=newlens
     threading.Thread(target=autoupdate).start()
     for i in range(0,nums,subnums):
-      buffpos.append(XMEMPI.acquire("scatter", args=(subnums,print)))
+      buffpos.append(XMEMPI.acquire("scatter", args=(subnums,)))
       event.set()
-    result.value+=scatter(nums%subnums,print)
+    result.value+=scatter(nums%subnums)
     while result.lens<len(buffpos): continue
     XMEMPI.close()
     run=False
