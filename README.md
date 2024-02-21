@@ -1,12 +1,14 @@
 # Xenon-Multiprocessing-Engine
 Xenon-Multiprocessing-Engine (**XME** thereafter) is a (platform-independent) portable optimization IO intensive interface (**XMESI**) based on **multiprocessing** for process pool operation, supports the most of **serializable-split** operations.
 
-Version 4.1.0
-Update: 2024-01-22
+Version 4.2.1
+Update: 2024-02-21
 
 Author: Junxiang H. & Weihui L. <br>
 Suggestion to: wacmkxiaoyi@gmail.com
 Website: wacmk.cn/com
+
+**Update in 4.2: Use security-token communication and thread lock to increase data operation security, and optimize the usage of MPI modules**
 
 **Update in 4.1: The MPI mode blocking calculation function acquire\block is merged into the acquire function (block=True can be specified) as blocking (results are called through the mpi.get() function). Also add broadcast function.**
 
@@ -670,7 +672,7 @@ MPI (logical process):    Process initialization - awakening - dynamic stack loo
 ***Therefore, XMESI is more suitable for programs with complete structure, while MPI is suitable for situations where you only want to use parallel computing for one or two calculation logics.*** Next, we will use the above example to introduce the use of **XME.MPI**
 
 ## 3.1 Creation of MPI Object and Registration of Computing Units
-The creation of MPI is similar to the creation of XMESI and has similar creation methods, and what we need when creating is to specify the main function. Also note that process allocation is different from XMESI when using MPI. **The MPI process pool consists of a main process and several logical processes**, while there is no primary-secondary relationship between XMESI processes. Therefore, MPI should allocate at least 2 processes (**pnum>=2**), namely a main process and a logical process. When using XME.MPI, you must add the parameter **XMEMPI** to the main function **main(...)**, which is a tuple composed of the XME.MPI object, the status of all logical processes in XME.MPI and the connections to all logical processes in XME.MPI
+The creation of MPI is similar to the creation of XMESI and has similar creation methods, and what we need when creating is to specify the main function. Also note that process allocation is different from XMESI when using MPI. **The MPI process pool consists of a main process and several logical processes**, while there is no primary-secondary relationship between XMESI processes. Therefore, MPI should allocate at least 2 processes (**pnum>=2**), namely a main process and a logical process. When using XME.MPI, you must add the parameter **XMEMPI** to the main function **main(...)**, which is a derived class from XME.MPI
 
 ```python
 from XME.MPI import MPI
@@ -678,10 +680,13 @@ from XME.MPI import MPI
 def distance(p1,p2):
   return np.sum((p2-p1)**2)**0.5
 def main(XMEMPI):
-  mpi,status,conns=XMEMPI
+  #.... some logical
+  XMEMPI.close()
 if __name__ == '__main__':
-  mpi=MPI(main,pnum=3)
+  mpi=MPI(main,pnum=3)#register function "main" as the main function
   mpi["distance"]=distance
+  mpi.run(#args of function main
+    ) # return's same as the function main's return
 ```
 
 In the above code, mpi=MPI(main,pnum=3) means creating an XME.MPI object and using 1 main process and 2 logical processes, where **main** means the main function. mpi["distance"]=distance means registering the logical computing unit **distance(...)**.
@@ -691,21 +696,90 @@ According to the MPI specification, process A will send the data packet to proce
 
 ```python
 def main(XMEMPI):
-  mpi,status,conns=XMEMPI
   points=[np.array([0,0]),np.array([3,0]),np.array([0,4])]
-  bufferpos01=mpi.acquire(status, conns, "distance", arg=(points[0],points[1]),block=True)
-  bufferpos02=mpi.acquire(status, conns, "distance", arg=(points[0],points[2]),to=list(status.keys())[0])
-  bufferpos12=mpi.acquire(status, conns, "distance", arg=(points[1],points[2]))
-  l01=mpi.get(bufferpos01)
-  l02=mpi.get(bufferpos02)
-  l12=mpi.get(bufferpos12)
-  mpi.close(status,conns)
+  bufferpos01=XMEMPI.acquire("distance", args=(points[0],points[1]),block=True)
+  bufferpos02=XMEMPI.acquire("distance", args=(points[0],points[2]),to=list(status.keys())[0])
+  bufferpos12=XMEMPI.acquire("distance", args=(points[1],points[2]))
+  l01=XMEMPI.get(bufferpos01)
+  l02=XMEMPI.get(bufferpos02)
+  l12=XMEMPI.get(bufferpos12)
+  XMEMPI.close()
   #....
 ```
 
 Both block_acquire and acquire are composed of 3 required parameters and 2 functions involved in logical calculation units. Among them, they must be given the status of the logical process, the connection of the logical process and the target logical computing unit. During this process, XME.MPI will call XME.MPI.\_\_encode\_\_ to serialize the call parameters (fun, \*arg, \*\*kwarg) through pickle, and then pass them to the target logical process. The logical process will deserialize the obtained data. ization, thereby completing the insertion into the stack operation, then executing the relevant logical computing unit, and reserializing the results and returning them to the main process. The difference is that block_acquire will return the execution result at once until the entire logical computing unit is executed, while acquire will allocate a buffer pointer to the result due to non-blocking, and then automatically store the result at the address pointed to by the pointer when the calculation is completed. So acquire will return the pointer corresponding to the address and can be obtained through XME.MPI.get (blocking). The size of the buffer can be set by specifying the mpi_buffer_size parameter when creating the XME.MPI object. The default is 255. The parameter to points to one of the XME.MPI logical processes corresponding to the keys of status and conns. It can also be used by XME.MPI to automatically search for idle logical processes (ANY\_PROCESS)
 
-MPI should be closed after all stack operations are completed (**mpi.close(status,conns,to=ALL\_PROCESSES)**), otherwise all logical processes will continue to execute and form a deadlock. The parameter to points to one of the XME.MPI logical processes corresponding to the keys of status and conns. It can also be used by XME.MPI to automatically search for idle logical processes (ALL\_PROCESSES)
+MPI should be closed after all stack operations are completed (**mpi.close(XMEMPI,to=ALL\_PROCESSES)**), otherwise all logical processes will continue to execute and form a deadlock. The parameter to points to one of the XME.MPI logical processes corresponding to the keys of status and conns. It can also be used by XME.MPI to automatically search for idle logical processes (ALL\_PROCESSES)
+
+## 3.3 Example Usage of XME.MPI
+In this section we will introduce a probabilistic way to find pi. We assume that there are N small balls, and this small ball will fall into a box with length and width [-r, r]. We assume that the number of small balls falling into a circle with radius r is n, then it is not difficult to prove that pi=4\*n/N. The following will be based on this theory, through XME.MPI, and create a thread for loading results from the buffer regularly.
+
+Test sample (i7-13700kf):
+
+nums=10\*\*8
+
+subnums=10\*\*6
+
+pnum=1 (no XME mode), calculation time: 35s
+
+pnum=8 (7 logical processes), calculation time: 6s
+
+```python
+from XME.MPI import MPI
+from random import uniform
+import time,threading,sys
+r=1
+def scatter(nums,print=print):
+  result=0
+  print(nums)
+  for i in range(nums):
+    if uniform(-r,r)**2+uniform(-r,r)**2<=r**2: result+=1
+  return result
+
+def main(nums,subnums=0,XMEMPI=None,print=print):
+  t0=time.time()
+  class res: 
+    value=0
+    lens=0
+  result=res()
+  if XMEMPI:
+    buffpos=[]
+    run=True
+    event=threading.Event()
+    def autoupdate():
+      while run:
+        newlens=len(buffpos)
+        if result.lens==newlens: event.wait()
+        for i in buffpos[result.lens:newlens]: result.value+=XMEMPI.get(i)
+        result.lens=newlens
+    threading.Thread(target=autoupdate).start()
+    for i in range(0,nums,subnums):
+      buffpos.append(XMEMPI.acquire("scatter", args=(subnums,print)))
+      event.set()
+    result.value+=scatter(nums%subnums,print)
+    while result.lens<len(buffpos): continue
+    XMEMPI.close()
+    run=False
+    event.set()
+  else: result.value=scatter(nums)
+  print("pi:",4*result.value/nums)
+  print("Time usage:",time.time()-t0)
+
+if __name__ == '__main__':
+  nums=100000000
+  subnums=10000
+  pnum=8
+  for i in range(1,len(sys.argv),2):
+    if sys.argv[i]=="-n": nums=int(sys.argv[i+1])
+    elif sys.argv[i]=="-s": subnums=int(sys.argv[i+1])
+    elif sys.argv[i]=="-p": pnum=int(sys.argv[i+1])
+  if pnum>=2:
+    mpi=MPI(main,pnum=pnum)
+    mpi["scatter"]=scatter
+    mpi.run(nums,subnums)
+  else:
+    main(nums,subnums)
+```
 
 # 4 Unavailable Situation
 
