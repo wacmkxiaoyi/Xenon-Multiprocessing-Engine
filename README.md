@@ -1537,8 +1537,6 @@ if __name__=="__main__":
   fun()
 ```
 
-```
-
 # 4 Unavailable Situation
 
 
