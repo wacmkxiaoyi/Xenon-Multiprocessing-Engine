@@ -1,7 +1,7 @@
 Xenon-Multiprocessing-Engine (**XME** thereafter) is a (platform-independent) portable optimization IO intensive interface (**XMESI**) based on **multiprocessing** for process pool operation, supports the most of **serializable-split** operations.
 
-Version 4.2.2
-Update: 2024-02-22
+Version 4.2.5
+Update: 2024-02-29
 
 Author: Junxiang H. & Weihui L. <br>
 Suggestion to: wacmkxiaoyi@gmail.com
@@ -116,10 +116,13 @@ if __name__=="__main__":
   v=xme.Array([v*10 for v in range(10)]) #set v is a splitable array
   print(sum(xme.fun(v))) #xme.fun will call the top function (i.e., fun(v)) in the functions table, and returns a tuple with fun(v)'s result in executions table
 
+  #or call by __call__(*args,**kwargs)
+  print(sum(xme(v)))
+
   '''
-  xme.fun(*targ,**args):
-  *targ, list of target function's paramters
-  **args, dict of target function's keyword parameters
+  xme.fun(*args,**kwargs):
+  *args, list of target function's paramters
+  **kwargs, dict of target function's keyword parameters
   '''
 ```
 
@@ -140,7 +143,7 @@ if __name__=="__main__":
   v=[v*10 for v in range(10)]
   time_use_xme_0=time.time()
   xme=XME.XME(fun)
-  print("xme",sum(xme.fun(xme.Array(v))))
+  print("xme",sum(xme(xme.Array(v))))
   time_use_xme_1=time.time()
 
   time_no_xme_0=time.time()
@@ -210,12 +213,12 @@ if __name__=="__main__":
   import XME
   ser=[ServicesA(),ServicesB()] #similar to multi-thread models
   xme=XME.XME(*[i.Main for i in ser]) #insert function into functions table
-  xme.funs(tagr_array=[['''args of serA'''],['''args of serB''']]) #call the server
+  xme.funs(agrs_array=[['''args of serA'''],['''args of serB''']]) #call the server
   '''
-  xme.funs(funum_array=range(len(<funtable.keys>)),tagr_array=[[]]*len(<funtable.keys>), args_array=[{}]*len(<funtable.keys>)
+  xme.funs(funum_array=range(len(<funtable.keys>)),agrs_array=[[]]*len(<funtable.keys>), kwargs_array=[{}]*len(<funtable.keys>)
   funum_array: insert which functions from functions table into excution table, default: all functions in functions table
-  tagr_array: *targ=tagr_array[i] is function with index "i" in functions table
-  args_arrag: **args=args_array[i] ....
+  agrs_array: *args=tagr_array[i] is function with index "i" in functions table
+  kwargs_array: **kwargs=kwargs_array[i] ....
   '''
 ```
 
@@ -234,14 +237,14 @@ def example_fun(a0,a1=None,a2=None,**kwargs):
 if __name__=="__main__":
   import XME
   xme=XME.XME(example_fun)
-  xme.fun(xme.Array(range(10)),a1="a1",a2="a2",kw1="kw1",kw2="kw2"):
+  xme(xme.Array(range(10)),a1="a1",a2="a2",kw1="kw1",kw2="kw2"):
 ```
 
 solution:
 
 ```python
   #modify the execute function:
-  xme.fun(xme.Array(range(10)),a1="a1",a2="a2",kwargs={kw1:"kw1",kw2:"kw2"}):
+  xme(xme.Array(range(10)),a1="a1",a2="a2",kwargs={kw1:"kw1",kw2:"kw2"}):
 ```
 
 
@@ -257,7 +260,7 @@ def example_fun(*args,a1=None,a2=None):
 if __name__=="__main__":
   import XME
   xme=XME.XME(example_fun)
-  xme.fun(0,1,xme.Array(range(10)),a1="a1",a2="a2"):
+  xme(0,1,xme.Array(range(10)),a1="a1",a2="a2"):
 ```
 
 solution:
@@ -324,9 +327,157 @@ def fun(logobj=None) :
   #do something
 ```
 
+# 2 Message Passing Interface (MPI)
+In Section 3.4, we gave a simple model of RPC, but message passing and RPC calls through XMEManager.Monitor are not suitable for situations where shared variable access is fast and the size of the data stream increases. At the same time, XMEManager.Monitor is more suitable for the first process connected through the network. For RPC calls from the local process pool (**such as computationally intensive tasks**), XME4.0 provides a new interface designed in accordance with the MPI specification.
 
-# 2 Shared-Memory and XMEManager
-## 2.1 Shared-Memory Variables and Objects
+In order to facilitate developers to understand how XME.MPI implements RPC, we will provide a detailed overview of the architecture here. First, we consider a simple physical calculation model, which can perform relevant calculation logic by the main function main()
+
+```python
+import numpy as np
+def distance(p1,p2):
+  return np.sum((p2-p1)**2)**0.5
+def main():
+  points=[np.array([0,0]),np.array([3,0]),np.array([0,4])] #define a triangle
+  l01=distance(points[0],points[1])
+  l02=distance(points[0],points[2])
+  l12=distance(points[1],points[2])
+  print(l01**2+l02**2==l12**2 || l01**2+l12**2==l02**2 || l12**2+l02**2==l01**2)
+if __name__ == '__main__':
+  main()
+```
+
+In the above code, we define three points. We will calculate the distance between the three points to determine whether it is a right triangle. We find that we will call the function **distance()** multiple times, based on the idea of parallel computing. We can assume that the **distance** function represents a complex computational logic unit (such as solving differential equations through RK4). At the same time, the parameters used each time distance is called have no substantial relationship with the previous results, so we can bind these three computing units to three different processes. 
+
+computing units    args     Processid
+
+fun1               args1    0
+
+fun1               args2    1
+
+fun2               args3    2
+
+....               ...    .....
+
+This approach is actually similar to the use of the XMESI  introduced in section 1. The difference is that the use of all functions in the **process pool established by the XMESI is completely static**, and it will execute all static stacks defined by developers. But **MPI's call to the process pool is completely dynamic** (can be regarded as a simplified version of XMEManager):
+
+XMESI:  Process initialization - awakening - static stack execution - return result - process shutdown
+MPI (logical process):    Process initialization - awakening - dynamic stack loop (insert, execute, return) - process shutdown
+    (main process):       Process initialization - awakening - static stack execution -  process shutdown  
+
+***Therefore, XMESI is more suitable for programs with complete structure, while MPI is suitable for situations where you only want to use parallel computing for one or two calculation logics.*** Next, we will use the above example to introduce the use of **XME.MPI**
+
+## 2.1 Creation of MPI Object and Registration of Computing Units
+The creation of MPI is similar to the creation of XMESI and has similar creation methods, and what we need when creating is to specify the main function. Also note that process allocation is different from XMESI when using MPI. **The MPI process pool consists of a main process and several logical processes**, while there is no primary-secondary relationship between XMESI processes. Therefore, MPI should allocate at least 2 processes (**pnum>=2**), namely a main process and a logical process. When using XME.MPI, you must add the parameter **XMEMPI** to the main function **main(...)**, which is a derived class from XME.MPI
+
+```python
+from XME.MPI import MPI
+#... codes from section 3
+def distance(p1,p2):
+  return np.sum((p2-p1)**2)**0.5
+def main(XMEMPI):
+  #.... some logical
+  XMEMPI.close()
+if __name__ == '__main__':
+  mpi=MPI(main,pnum=3)#register function "main" as the main function
+  mpi.run(#args of function main
+    ) # return's same as the function main's return
+
+  #usage in short:
+  #MPI(main,pnum=3)(...)
+```
+
+In the above code, mpi=MPI(main,pnum=3) means creating an XME.MPI object and using 1 main process and 2 logical processes, where **main** means the main function.
+
+## 2.2 MPI Logical Computing Unit Call
+According to the MPI specification, process A will send the data packet to process B, and process B will parse the data packet and perform related operations, and then send the result back to process A. XME.MPI also implements related functions. It should be noted that the inter-process communication of XME.MPI is limited to the main process and the logical process. Direct communication is not allowed between the logical process and the logical process, so deadlock is avoided to a certain extent. XME.MPI provides two ways to insert into logical computing command to **task stacks** by **XME.MPI.acquire**. It should be noting that the when all the buffers of XME.MPI are used, the insert procedure is blocking until at least one buffer is available. One is blocking and the other is non-blocking by using parameter **block=True or False (default)**. Developers can use it according to their own needs. 
+
+```python
+def main(XMEMPI):
+  points=[np.array([0,0]),np.array([3,0]),np.array([0,4])]
+  bufferpos01=XMEMPI.acquire(distance, args=(points[0],points[1]),block=True)
+  #in short: XMEMPI(...)
+  bufferpos02=XMEMPI(distance, args=(points[0],points[2]),to=list(status.keys())[0])
+  bufferpos12=XMEMPI(distance, args=(points[1],points[2]))
+  l01=XMEMPI.get(bufferpos01)
+  #in short: XMEMPI[bufferpos01]
+  l02=XMEMPI[bufferpos02]
+  l12=XMEMPI[bufferpos12]
+  XMEMPI.close()
+  #....
+```
+
+Both block_acquire and acquire are composed of 3 required parameters and 2 functions involved in logical calculation units. Among them, they must be given the status of the logical process, the connection of the logical process and the target logical computing unit. During this process, XME.MPI will call XME.MPI.\_\_encode\_\_ to serialize the call parameters (fun, \*arg, \*\*kwarg) through pickle, and then pass them to the target logical process. The logical process will deserialize the obtained data. ization, thereby completing the insertion into the stack operation, then executing the relevant logical computing unit, and reserializing the results and returning them to the main process. The difference is that block_acquire will return the execution result at once until the entire logical computing unit is executed, while acquire will allocate a buffer pointer to the result due to non-blocking, and then automatically store the result at the address pointed to by the pointer when the calculation is completed. So acquire will return the pointer corresponding to the address and can be obtained through XME.MPI.get (blocking). The size of the buffer can be set by specifying the mpi_buffer_size parameter when creating the XME.MPI object. The default is 255. The parameter to points to one of the XME.MPI logical processes corresponding to the keys of status and conns. It can also be used by XME.MPI to automatically search for idle logical processes (ANY\_PROCESS)
+
+MPI should be closed after all stack operations are completed (**mpi.close(XMEMPI,to=ALL\_PROCESSES)**), otherwise all logical processes will continue to execute and form a deadlock. The parameter to points to one of the XME.MPI logical processes corresponding to the keys of status and conns. It can also be used by XME.MPI to automatically search for idle logical processes (ALL\_PROCESSES)
+
+## 2.3 Example Usage of XME.MPI
+In this section we will introduce a probabilistic way to find pi. We assume that there are N small balls, and this small ball will fall into a box with length and width [-r, r]. We assume that the number of small balls falling into a circle with radius r is n, then it is not difficult to prove that pi=4\*n/N. The following will be based on this theory, through XME.MPI, and create a thread for loading results from the buffer regularly. Since the above process involves a large number of **floating point** operations, we use the size of nums as the precision and optimize it in **an integer grid manner**.
+
+Test sample (AMD-5700X):
+
+nums=10\*\*10
+
+subnums=10\*\*8
+
+pnum=1 (no XME mode), calculation time: 4939.54s
+
+pnum=12 (11 logical task processes), calculation time: 565.89s
+
+result=3.141582962
+
+```python
+from XME.MPI import MPI
+from random import uniform
+import time,threading,sys,math
+def scatter(nums):
+  result=0
+  for i in range(nums):
+    if uniform(0,1)**2+uniform(0,1)**2<=1: result+=1
+  return result
+
+def main(nums,subnums=0,XMEMPI=None):
+  t0=time.time()
+  class res: 
+    value=0
+    lens=0
+  result=res()
+  if XMEMPI:
+    buffpos=[]
+    run=True
+    event=threading.Event()
+    def autoupdate():
+      while run:
+        newlens=len(buffpos)
+        if result.lens==newlens: event.wait()
+        for i in buffpos[result.lens:newlens]: result.value+=XMEMPI[i]
+        result.lens=newlens
+    threading.Thread(target=autoupdate).start()
+    for i in range(0,nums,subnums):
+      buffpos.append(XMEMPI(scatter, args=(subnums,)))
+      event.set()
+    result.value+=scatter(nums%subnums)
+    while result.lens<len(buffpos): continue
+    XMEMPI.close()
+    run=False
+    event.set()
+  else: result.value=scatter(nums)
+  print("pi:",4*result.value/nums)
+  print("Time usage:",time.time()-t0)
+
+if __name__ == '__main__':
+  nums=10**8
+  subnums=10**6
+  pnum=12
+  for i in range(1,len(sys.argv),2):
+    if sys.argv[i]=="-n": nums=int(sys.argv[i+1])
+    elif sys.argv[i]=="-s": subnums=int(sys.argv[i+1])
+    elif sys.argv[i]=="-p": pnum=int(sys.argv[i+1])
+  if pnum>=2:MPI(main,pnum=pnum)(nums,subnums)
+  else:main(nums,subnums)
+```
+
+# 3 Shared-Memory and XMEManager
+## 3.1 Shared-Memory Variables and Objects
 XME supports all memory sharing mechanisms of all multiprocess module as variables input to each process (such as Queue, Pipe, Value, Manager and the shared_memory module supported after python 3.8.3). Users can define corresponding types of parameter types to insert into the execution table and achieve target functions. In addition to various proxy variables defined by users based on multiprocessing module, XME also provides a way to define a shared-memory object:
 
 **Note: In XME<4.0, class Object: XME.xmem_object**
@@ -350,7 +501,7 @@ funa   ...    0x00000256    ...     a=shared_list (point to proxy address: 0x000
 funa   ...    0x000002a3    ...     a=shared_list (point to proxy address: 0x00000743)
 
 
-## 2.2 XMEManager
+## 3.2 XMEManager
 XMEManager is a shared memory low-level managed class provided by XME. For all developers using XME, it is recommended to use the XMEManager for IO-intensive shared memory operations. The XMEManager is a predetermined shared library created when an XME object is created. There are value table **\_\_valuetable\_\_** and buffer table **\_\_Buffer\_Call\_\_**. It also includes a memory sharing security module and a monitoring module. At the same time, the XMEManager object created through **XME.Manager.XMEMBuilder** itself is memory shared, that is to say, the XMEManager referenced by all processes can point to the same memory address.
 
 **Note: In XME<4.0, class XMEManager: XME.XMEManager**
@@ -364,19 +515,19 @@ if __name__=="__main__":
   initialtable={"key":"the initial key-value pairs in __valuetable__"}
   xmem=XMEMBuilder(size=32,**initialtable)
   '''
-  size: the size of operator name (see the section 2.1 Security)
+  size: the size of operator name (see the section 3.1 Security)
   initialtable: the initial key-value pairs in memory-shared dict __valuetable__
   '''
   xme=XME.XME(target_fun)
   xmem.update({"a list key":"value of this key"}) #usage like a dict 
-  xme.fun(xmem)
+  xme(xmem)
 ```
 
 In the above situation, we assign values to XMEManager.\_\_valuetable\_\_ in two ways. In fact, \_\_valuetable\_\_ will not be an empty table at the beginning even without assignning. It is allocated three memory-shared dicts \_\_STATUS\_\_, \_\_GUARD\_\_, and \_\_XMEM\_\_ at the beginning.
 
 **\_\_STATUS\_\_**: Save the status information of all processes. The process needs to update the status information through XMEManger.status(Operator=None,Status=None).
 
-**\_\_GUARD\_\_**: XMEManger guardian class status (see section **2.5**)
+**\_\_GUARD\_\_**: XMEManger guardian class status (see section **3.5**)
 
 **\_\_XMEM\_\_**: Mapping of all built-in functions of XMEManager
 
@@ -401,7 +552,7 @@ copy_msg(Operator=None) #delete_msg(Operator) & update_msg(__valuetable__,Operat
 AllocOperator() #allocate a new operator
 ```
 
-## 2.3 Security Module
+## 3.3 Security Module
 The problem of reading and writing shared memory variables in multi-process programs usually encounters lock interaction problems that are more troublesome than those in multi-threads. We also strongly recommend using associated locking operations when using shared variables. Currently XME supports three types of locks, 1. Global lock from multiprocess.Manager().Lock(). 2. From user-defined multi-process lock 3. Security module, a new module only supported in XME>=3.3  (**Security object will be created automatically when calling XMEMBuilder to create the XMEManager, and is also memory shared**).
 
 **Note: In XME<4.0, class Security: XME.XMElib.Security**
@@ -435,7 +586,7 @@ if(sec.acquire(sec.ADMIN)): #acquire a lock, with operator the administractor
 sec.release(sec.ADMIN) #release a lock, with operator the administractor
 ```
 
-## 2.4 Monitor Module
+## 3.4 Monitor Module
 Monitor is a new module (version >=3.3) of XME designed to provide interaction between different programs (generally processes located on the local computer). This class has a shared memory variable Monitor.\_\_Message\_\_All processes can implement message passing (such as status reporting) and RPC (remote procedure call) by network. In Monitor communication, all data will be stored in the form of serializable messages (via the json module) (such as lists, dictionaries, np.ndarray, etc.). At the same time, all data in Monitor.\_\_Message\_\_ should be able to be serialized by json. The reason why pickle module is not used for serialization and json is used here is to consider the platform-independent feature. (**Monitor object will be created automatically when calling XMEMBuilder to create the XMEManager, and is also memory shared**)
 
 **Note: In XME<4.0, class Monitor: XME.XMElib.Monitor**
@@ -455,7 +606,7 @@ if __name__=="__main__":
   c=mm.dict({"key":"This is a list message"}) #initial a memory-shared dict in __Message__
   mon.update({"a":a,"b":b,"c":c},Operator=sec.ADMIN) #usage == dict.update, 
   #Note: In subsequent modification operations by calling mon.update(), the reassignment of the shared memory key may cause the shared memory agent to fail.
-  xme.fun(mon,**other_parameters)
+  xme(mon,**other_parameters)
   '''
   Other common functions in XME.Manager.Monitor:
   get(*keys) #like dict[key], if len(keys)==0, returns whole __Message__ (copy version)
@@ -466,7 +617,7 @@ if __name__=="__main__":
   '''
 ```
 
-### 2.4.1 RPC (Remote Produce Call) Example by Monitor Object
+### 3.4.1 RPC (Remote Produce Call) Example by Monitor Object
 In this section, we will provide a brief overview of the RPC functionality over network connections implemented through the Monitor module. Before this, we assume that there is some mechanism to send and receive messages between different hosts (such as sockets, etc., this practice is common in load balancing servers). Here we assume that the receiving function and sending function are **recv()** and **send(msg)**, and are controlled by a public class **Message**
 
 ```python
@@ -543,7 +694,7 @@ In this example, the client needs to connect to the server firstly. When the cli
 
 It should be noted that the case shown in this section only provides a general framework of RPC and omits many key steps at each level, such as further information security, reliability, etc. are not considered. But it basically demonstrates the necessary factors to implement RPC. If readers need to engage in RPC development based on Monitor, please design the corresponding functions according to their own needs! 
 
-## 2.5 XME.Manager.Guard
+## 3.5 XME.Manager.Guard
 XME.Manager.Guard is a collaborative process class provided by XME for automatically executing the XMEManager.exec function. If readers use XMEManager for function development and have high frequency of operations on shared memory variables and strict lock allocation requirements, it is recommended to use the XME.Manager.Guard process and cooperate with XMEManager.append() to implement it. At this time, XME.Manager.Guard will automatically host the call to XMEManager.exec to avoid complex lock interaction issues. 
 
 **Note 1: XME.Manager.Guard is usually suitable for situations where the frequency of access to shared memory is not so high but there are strict data synchronization requirements.**
@@ -588,8 +739,8 @@ if __name__=="__main__":
   print(xmem.get_table("v").get())
 ```
 
-### 2.5.1 HeartJump
-From the example in 2.5 we send an update command to XMEManger to update the status of Guard and stop the Guard process when the process ends (if we don't do this, the program will never stop). But in fact, this approach is risky, because both process A and B may have defined to stop Guard when the process ends, but process A may have stopped Guard after the end but process B has not, thus causing process B to submit to XMEManager The task is not processed, and may even get stuck when process B calls XMEManager.get(). In order to solve this problem, we recommend using the XME.HeartJump class in all processes that call XMEManager and Guard. This class will be Create a thread under the child process to regularly submit a task that updates the status of the current child process. This also ensures that the Guard process will automatically end only when all child processes have ended.
+### 3.5.1 HeartJump
+From the example in 3.5 we send an update command to XMEManger to update the status of Guard and stop the Guard process when the process ends (if we don't do this, the program will never stop). But in fact, this approach is risky, because both process A and B may have defined to stop Guard when the process ends, but process A may have stopped Guard after the end but process B has not, thus causing process B to submit to XMEManager The task is not processed, and may even get stuck when process B calls XMEManager.get(). In order to solve this problem, we recommend using the XME.HeartJump class in all processes that call XMEManager and Guard. This class will be Create a thread under the child process to regularly submit a task that updates the status of the current child process. This also ensures that the Guard process will automatically end only when all child processes have ended.
 
 **Note: In XME<4.0, class HeartJump: XME.HeartJump**
 
@@ -629,154 +780,6 @@ if __name__=="__main__":
   xme=XME.XME(fun,xmeguard.Guard)
   xme.gfun(xme.Array(range(10)),xmem,garg=(xmem,))
   print(xmem.get_table("v").get())
-```
-
-# 3 Message Passing Interface (MPI)
-In Section 2.4, we gave a simple model of RPC, but message passing and RPC calls through XMEManager.Monitor are not suitable for situations where shared variable access is fast and the size of the data stream increases. At the same time, XMEManager.Monitor is more suitable for the first process connected through the network. For RPC calls from the local process pool (**such as computationally intensive tasks**), XME4.0 provides a new interface designed in accordance with the MPI specification.
-
-In order to facilitate developers to understand how XME.MPI implements RPC, we will provide a detailed overview of the architecture here. First, we consider a simple physical calculation model, which can perform relevant calculation logic by the main function main()
-
-```python
-import numpy as np
-def distance(p1,p2):
-  return np.sum((p2-p1)**2)**0.5
-def main():
-  points=[np.array([0,0]),np.array([3,0]),np.array([0,4])] #define a triangle
-  l01=distance(points[0],points[1])
-  l02=distance(points[0],points[2])
-  l12=distance(points[1],points[2])
-  print(l01**2+l02**2==l12**2 || l01**2+l12**2==l02**2 || l12**2+l02**2==l01**2)
-if __name__ == '__main__':
-  main()
-```
-
-In the above code, we define three points. We will calculate the distance between the three points to determine whether it is a right triangle. We find that we will call the function **distance()** multiple times, based on the idea of parallel computing. We can assume that the **distance** function represents a complex computational logic unit (such as solving differential equations through RK4). At the same time, the parameters used each time distance is called have no substantial relationship with the previous results, so we can bind these three computing units to three different processes. 
-
-computing units    args     Processid
-
-fun1               args1    0
-
-fun1               args2    1
-
-fun2               args3    2
-
-....               ...    .....
-
-This approach is actually similar to the use of the XMESI  introduced in section 1. The difference is that the use of all functions in the **process pool established by the XMESI is completely static**, and it will execute all static stacks defined by developers. But **MPI's call to the process pool is completely dynamic** (can be regarded as a simplified version of XMEManager):
-
-XMESI:  Process initialization - awakening - static stack execution - return result - process shutdown
-MPI (logical process):    Process initialization - awakening - dynamic stack loop (insert, execute, return) - process shutdown
-    (main process):       Process initialization - awakening - static stack execution -  process shutdown  
-
-***Therefore, XMESI is more suitable for programs with complete structure, while MPI is suitable for situations where you only want to use parallel computing for one or two calculation logics.*** Next, we will use the above example to introduce the use of **XME.MPI**
-
-## 3.1 Creation of MPI Object and Registration of Computing Units
-The creation of MPI is similar to the creation of XMESI and has similar creation methods, and what we need when creating is to specify the main function. Also note that process allocation is different from XMESI when using MPI. **The MPI process pool consists of a main process and several logical processes**, while there is no primary-secondary relationship between XMESI processes. Therefore, MPI should allocate at least 2 processes (**pnum>=2**), namely a main process and a logical process. When using XME.MPI, you must add the parameter **XMEMPI** to the main function **main(...)**, which is a derived class from XME.MPI
-
-```python
-from XME.MPI import MPI
-#... codes from section 3
-def distance(p1,p2):
-  return np.sum((p2-p1)**2)**0.5
-def main(XMEMPI):
-  #.... some logical
-  XMEMPI.close()
-if __name__ == '__main__':
-  mpi=MPI(main,pnum=3)#register function "main" as the main function
-  mpi.run(#args of function main
-    ) # return's same as the function main's return
-
-  #usage in short:
-  #MPI(main,pnum=3)(...)
-```
-
-In the above code, mpi=MPI(main,pnum=3) means creating an XME.MPI object and using 1 main process and 2 logical processes, where **main** means the main function.
-
-## 3.2 MPI Logical Computing Unit Call
-According to the MPI specification, process A will send the data packet to process B, and process B will parse the data packet and perform related operations, and then send the result back to process A. XME.MPI also implements related functions. It should be noted that the inter-process communication of XME.MPI is limited to the main process and the logical process. Direct communication is not allowed between the logical process and the logical process, so deadlock is avoided to a certain extent. XME.MPI provides two ways to insert into logical computing command to **task stacks** by **XME.MPI.acquire**. It should be noting that the when all the buffers of XME.MPI are used, the insert procedure is blocking until at least one buffer is available. One is blocking and the other is non-blocking by using parameter **block=True or False (default)**. Developers can use it according to their own needs. 
-
-```python
-def main(XMEMPI):
-  points=[np.array([0,0]),np.array([3,0]),np.array([0,4])]
-  bufferpos01=XMEMPI.acquire(distance, args=(points[0],points[1]),block=True)
-  bufferpos02=XMEMPI.acquire(distance, args=(points[0],points[2]),to=list(status.keys())[0])
-  bufferpos12=XMEMPI.acquire(distance, args=(points[1],points[2]))
-  l01=XMEMPI.get(bufferpos01)
-  l02=XMEMPI.get(bufferpos02)
-  l12=XMEMPI.get(bufferpos12)
-  XMEMPI.close()
-  #....
-```
-
-Both block_acquire and acquire are composed of 3 required parameters and 2 functions involved in logical calculation units. Among them, they must be given the status of the logical process, the connection of the logical process and the target logical computing unit. During this process, XME.MPI will call XME.MPI.\_\_encode\_\_ to serialize the call parameters (fun, \*arg, \*\*kwarg) through pickle, and then pass them to the target logical process. The logical process will deserialize the obtained data. ization, thereby completing the insertion into the stack operation, then executing the relevant logical computing unit, and reserializing the results and returning them to the main process. The difference is that block_acquire will return the execution result at once until the entire logical computing unit is executed, while acquire will allocate a buffer pointer to the result due to non-blocking, and then automatically store the result at the address pointed to by the pointer when the calculation is completed. So acquire will return the pointer corresponding to the address and can be obtained through XME.MPI.get (blocking). The size of the buffer can be set by specifying the mpi_buffer_size parameter when creating the XME.MPI object. The default is 255. The parameter to points to one of the XME.MPI logical processes corresponding to the keys of status and conns. It can also be used by XME.MPI to automatically search for idle logical processes (ANY\_PROCESS)
-
-MPI should be closed after all stack operations are completed (**mpi.close(XMEMPI,to=ALL\_PROCESSES)**), otherwise all logical processes will continue to execute and form a deadlock. The parameter to points to one of the XME.MPI logical processes corresponding to the keys of status and conns. It can also be used by XME.MPI to automatically search for idle logical processes (ALL\_PROCESSES)
-
-## 3.3 Example Usage of XME.MPI
-In this section we will introduce a probabilistic way to find pi. We assume that there are N small balls, and this small ball will fall into a box with length and width [-r, r]. We assume that the number of small balls falling into a circle with radius r is n, then it is not difficult to prove that pi=4\*n/N. The following will be based on this theory, through XME.MPI, and create a thread for loading results from the buffer regularly.
-
-Test sample (i7-13700kf):
-
-nums=10\*\*8
-
-subnums=10\*\*6
-
-pnum=1 (no XME mode), calculation time: 35s
-
-pnum=8 (7 logical processes), calculation time: 6s
-
-```python
-from XME.MPI import MPI
-from random import uniform
-import time,threading,sys
-r=1
-def scatter(nums):
-  result=0
-  for i in range(nums):
-    if uniform(-r,r)**2+uniform(-r,r)**2<=r**2: result+=1
-  return result
-
-def main(nums,subnums=0,XMEMPI=None):
-  t0=time.time()
-  class res: 
-    value=0
-    lens=0
-  result=res()
-  if XMEMPI:
-    buffpos=[]
-    run=True
-    event=threading.Event()
-    def autoupdate():
-      while run:
-        newlens=len(buffpos)
-        if result.lens==newlens: event.wait()
-        for i in buffpos[result.lens:newlens]: result.value+=XMEMPI.get(i)
-        result.lens=newlens
-    threading.Thread(target=autoupdate).start()
-    for i in range(0,nums,subnums):
-      buffpos.append(XMEMPI.acquire(scatter, args=(subnums,)))
-      event.set()
-    result.value+=scatter(nums%subnums)
-    while result.lens<len(buffpos): continue
-    XMEMPI.close()
-    run=False
-    event.set()
-  else: result.value=scatter(nums)
-  print("pi:",4*result.value/nums)
-  print("Time usage:",time.time()-t0)
-
-if __name__ == '__main__':
-  nums=100000000
-  subnums=10000
-  pnum=8
-  for i in range(1,len(sys.argv),2):
-    if sys.argv[i]=="-n": nums=int(sys.argv[i+1])
-    elif sys.argv[i]=="-s": subnums=int(sys.argv[i+1])
-    elif sys.argv[i]=="-p": pnum=int(sys.argv[i+1])
-  if pnum>=2:
-    MPI(main,pnum=pnum)(nums,subnums)
-  else:
-    main(nums,subnums)
 ```
 
 # 4 Unavailable Situation
