@@ -1,7 +1,7 @@
 Xenon-Multiprocessing-Engine (**XME** thereafter) is a (platform-independent) portable optimization IO intensive interface (**XMESI**) based on **multiprocessing** for process pool operation, supports the most of **serializable-split** operations.
 
-Version 4.2.5
-Update: 2024-02-29
+Version 4.2.4
+Update: 2024-02-28
 
 Author: Junxiang H. & Weihui L. <br>
 Suggestion to: wacmkxiaoyi@gmail.com
@@ -796,8 +796,12 @@ xme.fun(file)
 file.close()
 ```
 
-## 4.2 Inline local functions
-In this section we will outline some objects that cannot be serialized. They are mainly composed of local functions or lambda functions. These objects that cannot be serialized will not be called by XMESI and XME.MPI.
+## 4.2 Unpicklable Object/Functions
+In this section we will outline some objects that cannot be serialized by pickle module. These objects that cannot be serialized will not be called by XMESI and XME.MPI.
+
+Examples:
+
+### 4.2.1 Functions Inner a Closure Function Frame
 
 ```python
 #This situation is prohibited in python MP
@@ -808,6 +812,62 @@ def fun():
   y=range(100)
   xme=XME(targetfun)
   return xme.fun(x,xme.Array(y)) # An error of connot pickle local function will be reported here! ! !
+if __name__=="__main__":
+  fun()
+```
+
+### 4.2.2 Lambda Functions
+
+```python
+#This situation is prohibited in python MP
+def fun():
+  x=50
+  y=range(100)
+  xme=XME(lambda x,y:x+y)
+  return xme.fun(x,xme.Array(y)) # An error of connot pickle local function will be reported here! ! !
+if __name__=="__main__":
+  fun()
+```
+
+### 4.2.3 Object Inner a Closure Function Frame
+```python
+#This situation is prohibited in python MP
+def add(x,y):
+  return x.value+y
+def fun():
+  class v(int):pass
+  x=v(50)
+  y=range(100)
+  xme=XME(add)
+  return xme.fun(x,xme.Array(y)) # An error of connot pickle local function will be reported here! ! !
+if __name__=="__main__":
+  fun()
+```
+
+### 4.2.4 Staticmethod
+```python
+#This situation is prohibited in python MP
+@staticmethod
+def add(x,y):
+  return x+y
+def fun():
+  x=50
+  y=range(100)
+  xme=XME(add)
+  return xme.fun(x,xme.Array(y)) # An error of connot pickle local function will be reported here! ! !
+if __name__=="__main__":
+  fun()
+```
+
+### 4.2.5 Threads/Processes Manager Objects
+```python
+#This situation is prohibited in python MP
+def getlock(lockobj):
+  return lockobj.acquire()
+def fun():
+  loc=multiprocessing.Lock()
+  xme=XME(getlock)
+  return xme.fun(loc) # An error of Lock object can only be shared via inheritance
 if __name__=="__main__":
   fun()
 ```
