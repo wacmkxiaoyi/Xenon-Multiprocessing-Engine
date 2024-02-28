@@ -425,7 +425,7 @@ pnum=12 (11 logical task processes), calculation time: 855.89s
 
 result=3.141582962
 
-**Note: As the number of processes increases in parallel computing, the speedup ratio (refer to Amdahl's Law) will decrease non-linearly. In this case, the operating efficiency is about 52.46%**
+**Note: As the number of processes increases in parallel computing, the speedup ratio (refer to Amdahl's Law) will decrease non-linearly. In this case, the operating efficiency is about 52.46%. The operating efficiency is positively related to the execution time within each MPI communication interval.**
 
 ```python
 from XME.MPI import MPI
