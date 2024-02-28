@@ -94,7 +94,7 @@ class XMEManager:
 		if status==None: status=f"<-HeartJump::{time.time()}->"
 		self.append(__XMEHJ__,Operator,status=status)
 	def get_buffers(self):
-		return deepcopy(self.__Buffer_Call__)
+		return iter(self.__Buffer_Call__.items())
 	def len(self):
 		return len(self.__Buffer_Call__["GUARD"])
 	def __len__(self):

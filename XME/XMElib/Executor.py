@@ -1,16 +1,6 @@
 from multiprocessing import Pool,cpu_count#,Lock
+from . import get_par,tuplize
 import numpy,traceback
-def tuplize(array):
-	if type(array) in (list,tuple, numpy.ndarray):
-		result=[]
-		for i in array:
-			if type(i) in (list, numpy.ndarray): result.append(tuplize(i))
-			else: result.append(i)
-		return tuple(result)
-	return array
-def get_par(args,name,default=None):
-	try: return args[name]
-	except: return default
 class Executor:
 	default_fun_strc="fun"
 	def __init__(self,*fun,**args):

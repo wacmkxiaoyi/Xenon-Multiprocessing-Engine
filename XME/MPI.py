@@ -21,54 +21,67 @@ STATUS_IDLE="<XME-MPI-STATUS: IDLE>"
 STATUS_ALLOCATED="<XME-MPI-STATUS: ALLOCATED>"
 STATUS_INRUN="<XME-MPI-STATUS: INRUN>"
 STATUS_END="<XME-MPI-STATUS: END>"
-TASK_NO_REGISTERED="<XME-MPI-RUN: TASK_NO_REGISTERED>"
 TASK_RUN_FAILURE="<XME-MPI-RUN: TASK_NO_REGISTERED>"
 BUFFER_EMPTY="<XME-MPI-BUFFER: EMPTY>"
 BUFFER_ALLOCATED="<XME-MPI-BUFFER: ALLOCATED>"
 BUFFER_EOF="<XME-MPI-BUFFER: EOF"
+@staticmethod
 def get_process_mark(tpid):
 	if tpid==0: return "<XME-MPI-MARK: MAIN PROCESS>"
 	else: return f"<XME-MMPI-MARK: TASK PROCESS {tpid}>"
+
+class __list__(list):
+	def to_end(self,key):
+		self.remove(key)
+		self.append(key)
+
 class __XMEMPI__:
 	def __init__(self,mpi,status,Main_Connector,Main_Request_Connector):
 		self.mpi=mpi
 		self.status=status
 		self.Main_Connector=Main_Connector
 		self.Main_Request_Connector=Main_Request_Connector
-	def acquire(self, funid, args=(), kwargs={}, to=ANY_PROCESS,block=False): return self.mpi.acquire(self.status,self.Main_Connector,self.Main_Request_Connector, funid, args, kwargs, to, block)
+	def acquire(self, fun, args=(), kwargs={}, to=ANY_PROCESS,block=False): return self.mpi.acquire(self.status,self.Main_Connector,self.Main_Request_Connector, fun, args, kwargs, to, block)
 	def close(self, to=ALL_PROCESSES): return self.mpi.close(self.status,self.Main_Connector,self.Main_Request_Connector,to)
 	def get(self,pos): return self.mpi.get(pos)
+	def __getitem__(self,key): return self.get(key)
+	def __call__(self, fun, args=(), kwargs={}, to=ANY_PROCESS,block=False): return self.acquire(fun, args, kwargs, to, block)
+	def __iter__(self):
+		yield self.mpi
+		yield self.status
+		yield self.Main_Connector
+		yield self.Main_Request_Connector
 
 class __XMEBUFFER__:
 	def __init__(self,buffersize):
 		self.size=buffersize
 		self.locks=None
-		self.last_alloc=-1
-		for pos in range(self.size): exec(f"self.buffer_{pos}=BUFFER_EMPTY")
-
-	def initial_locks(self): self.locks=[Lock() for _ in range(self.size)]
+		self.buffermap=__list__(range(self.size))
+		for pos in range(self.size): self[pos]=BUFFER_EMPTY
 
 	def allocate(self):
-		lls=list(range(self.size))
-		lls=lls[self.last_alloc+1:]+lls[:self.last_alloc+1]
-		for pos in lls:
-			if self.__getitem__(pos)==BUFFER_EMPTY:
+		if not self.locks: self.locks=[Lock() for _ in range(self.size)]
+		for pos in self.buffermap:
+			if self[pos]==BUFFER_EMPTY:
 				if self.locks[pos].acquire(blocking=False):
-					self.__setitem__(pos,BUFFER_ALLOCATED)
+					self[pos]=BUFFER_ALLOCATED
+					self.buffermap.to_end(pos)
 					self.locks[pos].release()
-					self.last_alloc=pos
-					if self.last_alloc== self.size-1: self.last_alloc=-1
 					return pos
 		return None
+
+	def __len__(self): return self.size
 
 	def __getitem__(self,pos): return eval(f"self.buffer_{pos}")
 
 	def __setitem__(self,pos,value): exec(f"self.buffer_{pos}=value")
 
+	def __iter__(self): 
+		for pos in range(self.size):yield self[pos]
+
 
 class MPI:
 	def __init__(self,mainfun,**xmeargs):
-		self.Tasks={}
 		self.buffer=__XMEBUFFER__(XME.get_par(xmeargs,"mpi_buffer_size",0xff))
 		self.mainfun=mainfun
 		self.xmeargs=xmeargs
@@ -92,6 +105,7 @@ class MPI:
 		Main_Request_Connector={}
 		Task_Request_Connector=[] #pipes to tasks processes
 		tpids=[]
+		self.task_alloc_map=__list__()
 		for i in range(1,self.pnum):
 			tpid=get_process_mark(i)
 			tpids.append(tpid)
@@ -102,19 +116,22 @@ class MPI:
 			pc,cc=Pipe()
 			Main_Request_Connector[tpid]=pc
 			Task_Request_Connector.append(cc)
+			self.task_alloc_map.append(tpid)
 		xme=XME.XME(self.__task__,self.mainfun,**self.xmeargs)
 		kwargs.update({"XMEMPI":__XMEMPI__(self,status,Main_Connector,Main_Request_Connector)})
-		return xme.gfun(xme.Array(tpids),status,xme.Array(Task_Connector),xme.Array(Task_Request_Connector),garg=args,gargs=kwargs)[0][0]
 
-	def __str__(self): return f"<class XME::MPI @ {hex(id(self))}: Task processes: {self.pnum}; Registed Tasks: {len(self.Tasks)}>"
-	def __setitem__(self,key,value): self.Tasks[key]=value
-	def __getitem__(self,key): return self.Tasks[key]
+		return xme.gfun(xme.Array(tpids),status,xme.Array(Task_Connector),xme.Array(Task_Request_Connector),gargs=args,gkwargs=kwargs)[0][0]
 
-	def acquire(self, status,connets,req, funid, args=(), kwargs={}, to=ANY_PROCESS,block=False):
+	def __str__(self): return f"<class XME::MPI @ {hex(id(self))}: Task processes: {self.pnum}; Buffer size: {len(self)}>"
+	def __setitem__(self,key,value): self.buffer[key]=value
+	def __getitem__(self,key): return self.buffer[key]
+	def __len__(self): return len(self.buffer)
+	def __call__(self,*args,**kwargs): return self.run(*args,**kwargs)
+
+	def acquire(self, status,connets,req, fun, args=(), kwargs={}, to=ANY_PROCESS,block=False):
 		def initial_locks():
 			#each Event() object has 48 bytes size
 			if self.global_buffer_lock: return
-			self.buffer.initial_locks()
 			self.global_buffer_lock=Event()
 			self.global_task_lock=Event()
 			self.tasklocks={tpid:Event() for tpid in status.keys()}
@@ -127,31 +144,32 @@ class MPI:
 
 		def send_and_recv(to,pos):
 			with self.buffer.locks[pos]:
-				connets[to].send(self.__encode__((funid,args,kwargs)))
-				self.buffer[pos]=connets[to].recv()
+				connets[to].send(self.__encode__((fun,args,kwargs)))
+				self[pos]=connets[to].recv()
 				self.global_task_lock.set()
 				self.tasklocks[to].set()
 		
 		initial_locks()
-		if to==ALL_PROCESSES: return [self.acquire(status, connets, funid, args, kwargs,tpid) for tpid in status.keys()]
-		elif type(to) in (list,tuple): return [self.acquire(status, connets, funid, args, kwargs,tpid) for tpid in to]
+		if to==ALL_PROCESSES: return [self.acquire(status, connets, fun, args, kwargs,tpid) for tpid in status.keys()]
+		elif type(to) in (list,tuple): return [self.acquire(status, connets, fun, args, kwargs,tpid) for tpid in to]
 		elif to==ANY_PROCESS:
 			closed=[]
 			while True:
 				wait=True
-				for tpid,sta in status.items():
-					if sta==STATUS_BEGIN: #means at least one task processes can be called in the future
+				for tpid in self.task_alloc_map:
+					if status[tpid]==STATUS_BEGIN: #means at least one task processes can be called in the future
 						wait=False
 						continue
-					elif sta==STATUS_IDLE:
+					elif status[tpid]==STATUS_IDLE:
 						req[tpid].send(self.__encode__(REQUEST_ACQUIRE))
 						if self.__decode__(req[tpid].recv())!=REQUEST_SUCCESSFUL:continue
 						status[tpid]=STATUS_ALLOCATED
+						self.task_alloc_map.to_end(tpid)
 						pos=allocate_buffer()
 						if not block: Thread(target=send_and_recv,args=(tpid,pos)).start()
 						else: send_and_recv(tpid,pos)
 						return pos
-					elif sta==STATUS_END and tpid not in closed: closed.append(tpid)
+					elif status[tpid]==STATUS_END and tpid not in closed: closed.append(tpid)
 					if set(status.keys())==set(closed):return
 				if wait: self.global_task_lock.wait()
 		else:
@@ -170,11 +188,11 @@ class MPI:
 
 	def get(self,pos):
 		if not self.global_buffer_lock:raise ValueError("The XME.MPI Locks are undefinded that buffer cannot be accessed, please use acquire function to initialize.")
-		if pos==None or pos>=self.buffer.size: return BUFFER_EOF
-		elif self.buffer[pos]==BUFFER_EMPTY: return BUFFER_EOF 
+		if pos==None or pos>=len(self): return BUFFER_EOF
+		elif self[pos]==BUFFER_EMPTY: return BUFFER_EOF 
 		with self.buffer.locks[pos]: 
-			result=self.__decode__(self.buffer[pos])
-			self.buffer[pos]=BUFFER_EMPTY
+			result=self.__decode__(self[pos])
+			self[pos]=BUFFER_EMPTY
 			self.global_buffer_lock.set()
 		return result
 
@@ -226,11 +244,9 @@ class MPI:
 				if request==TASK_END: 
 					status[tpid]=STATUS_END
 					break
-				funid, arg, kwargs=request
-				if funid in self.Tasks: 
-					result=self.Tasks[funid](*arg,**kwargs)
-					connect.send(self.__encode__(result))
-				else: connect.send(self.__encode__(TASK_NO_REGISTERED))
+				fun, arg, kwargs=request
+				result=fun(*arg,**kwargs)
+				connect.send(self.__encode__(result))
 			except Exception as err:
 				traceback.print_exc()
 				connect.send(self.__encode__(TASK_RUN_FAILURE))

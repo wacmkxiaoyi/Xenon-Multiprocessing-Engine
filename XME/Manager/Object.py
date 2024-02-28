@@ -1,5 +1,6 @@
 from multiprocessing.managers import BaseManager
 class __Manager__(BaseManager): pass
+@staticmethod
 def __get_manager__():
 	m=__Manager__()
 	m.start()

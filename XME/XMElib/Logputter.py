@@ -1,11 +1,6 @@
 import datetime
 import os
-from XME.XMElib import XME_Version
-def get_par(args,name,default=None):
-	try:
-		return args[name]
-	except:
-		return default
+from . import get_par,XME_Version
 class Logputter:
 	logfile=None
 	time=True

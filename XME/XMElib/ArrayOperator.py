@@ -1,9 +1,5 @@
 from multiprocessing import cpu_count,Manager
-def get_par(args,name,default=None):
-	try:
-		return args[name]
-	except:
-		return default
+from . import get_par
 class ArrayOperator:
 	def __init__(self,**args):
 		self.pnum=get_par(args,"pnum",cpu_count())
